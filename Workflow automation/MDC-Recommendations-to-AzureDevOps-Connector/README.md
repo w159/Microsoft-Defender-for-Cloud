@@ -93,6 +93,12 @@ cd src/function && func azure functionapp publish fa-mdc-ado-enricher --python
 Then assign the managed-identity roles, add the MI to your ADO org/project, and wire MDC Workflow
 Automation → the Logic App, as described in **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**.
 
+> **Required to trigger on real recommendations:** deploying the infrastructure does **not** make
+> Defender for Cloud send anything. You must create an **MDC Workflow Automation** whose trigger is
+> *Security recommendations* and whose action is the Logic App `la-mdc-ado-dispatcher`. Without it,
+> the connector only runs when you POST a payload to the Logic App manually. See
+> [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) §7.
+
 ---
 
 ## Local development

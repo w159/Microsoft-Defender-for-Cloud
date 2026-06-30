@@ -169,15 +169,54 @@ Verify the host indexes all functions (orchestrator + activities + the HTTP star
 
 ---
 
-## 7. Wire MDC Workflow Automation → Logic App
+## 7. Wire MDC Workflow Automation → Logic App (required)
 
-In the Azure portal: **Microsoft Defender for Cloud → Environment settings → (subscription) →
-Workflow automation → Add workflow automation**:
+**This step is required** — deploying the infrastructure does not, by itself, make Defender for
+Cloud send anything to the connector. Defender only forwards recommendations to the Logic App once
+you create a **Workflow Automation**. Until you do, the connector runs only when you POST a payload
+to the Logic App callback URL manually (see §9).
 
-- **Trigger:** Security recommendations (optionally filter by severity/standard).
-- **Action:** the Logic App `la-mdc-ado-dispatcher` created by the deployment.
+### Portal
 
-From now on, every matching recommendation flows end-to-end to a Work Item.
+**Microsoft Defender for Cloud → Environment settings → (select subscription) → Workflow
+automation → + Add workflow automation**:
+
+- **Name / Resource group:** anything (e.g. `wfa-mdc-ado`, your connector resource group).
+- **Trigger:** **Security recommendations** (optionally filter by severity/standard to limit volume).
+- **Action (Logic App):** the Logic App **`la-mdc-ado-dispatcher`** created by the deployment.
+- Save.
+
+### CLI (alternative)
+
+Create it as a `Microsoft.Security/automations` resource that targets the Logic App. The example
+below filters to **High** severity:
+
+```bash
+SUB=<your-subscription-id>; RG=rg-mdc-ado-dev
+LA_ID="/subscriptions/$SUB/resourceGroups/$RG/providers/Microsoft.Logic/workflows/la-mdc-ado-dispatcher"
+CALLBACK=$(az rest --method post \
+  --url "https://management.azure.com$LA_ID/triggers/When_an_MDC_recommendation_arrives/listCallbackUrl?api-version=2019-05-01" \
+  --query value -o tsv)
+
+cat > automation.json <<JSON
+{ "location": "eastus", "properties": {
+  "isEnabled": true,
+  "scopes": [ { "description": "Subscription", "scopePath": "/subscriptions/$SUB" } ],
+  "sources": [ { "eventSource": "Assessments", "ruleSets": [ { "rules": [
+    { "propertyJPath": "properties.metadata.severity", "propertyType": "String", "expectedValue": "High", "operator": "Equals" } ] } ] } ],
+  "actions": [ { "actionType": "LogicApp", "logicAppResourceId": "$LA_ID", "uri": "$CALLBACK" } ]
+} }
+JSON
+
+az rest --method put \
+  --url "https://management.azure.com/subscriptions/$SUB/resourceGroups/$RG/providers/Microsoft.Security/automations/wfa-mdc-ado?api-version=2019-01-01-preview" \
+  --body @automation.json
+```
+
+**Trigger semantics:** the automation fires when Defender **evaluates/updates an assessment** during
+its periodic re-evaluation — it is **not instantaneous**. Existing recommendations fire on the next
+evaluation pass; newly generated ones fire when first recorded. The connector dedupes, so re-fires
+of the same recommendation update (not duplicate) the existing Work Item.
 
 ---
 
