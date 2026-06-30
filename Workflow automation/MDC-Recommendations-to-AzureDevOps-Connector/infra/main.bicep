@@ -39,6 +39,9 @@ param instanceMemoryMB int = 2048
 @description('Extra tags merged onto the common tag set applied to every resource.')
 param tags object = {}
 
+@description('Optional suffix for globally-unique resource names (storage, Function app) so the template can be deployed more than once. Defaults to a short hash of the resource group id; override to pin a specific value. Lowercase alphanumeric, keep short.')
+param nameSuffix string = take(uniqueString(resourceGroup().id), 6)
+
 @description('Azure DevOps organization URL the connector writes work items to (§6.1).')
 param adoOrgUrl string
 
@@ -89,6 +92,7 @@ module storage 'modules/storage.bicep' = {
     tags: commonTags
     skuName: storageSkuName
     identityPrincipalId: managedIdentity.outputs.principalId
+    nameSuffix: nameSuffix
   }
 }
 
@@ -118,6 +122,7 @@ module functionApp 'modules/function-app.bicep' = {
     storageAccountName: storage.outputs.name
     storageBlobEndpoint: storage.outputs.primaryBlobEndpoint
     deploymentContainerName: storage.outputs.deploymentContainerName
+    nameSuffix: nameSuffix
     instanceMemoryMB: instanceMemoryMB
     maximumInstanceCount: maximumInstanceCount
     alwaysReadyInstances: alwaysReadyInstances

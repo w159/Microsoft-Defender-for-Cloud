@@ -8,6 +8,9 @@
 @description('Environment short name (dev | test | prod). Drives resource naming.')
 param env string
 
+@description('Optional suffix appended to the globally-unique Function app name so the template can be deployed more than once.')
+param nameSuffix string = ''
+
 @description('Azure region for the plan and app.')
 param location string = resourceGroup().location
 
@@ -87,7 +90,7 @@ resource plan 'Microsoft.Web/serverfarms@2024-11-01' = {
 }
 
 resource functionApp 'Microsoft.Web/sites@2024-11-01' = {
-  name: 'fa-mdc-ado-enricher'
+  name: 'fa-mdc-ado-enricher${nameSuffix}'
   location: location
   tags: tags
   kind: 'functionapp,linux'

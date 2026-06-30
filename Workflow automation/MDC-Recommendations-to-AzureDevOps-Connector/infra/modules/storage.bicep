@@ -6,6 +6,9 @@
 @description('Environment short name (dev | test | prod). Drives resource naming.')
 param env string
 
+@description('Optional suffix appended to the globally-unique storage account name so the template can be deployed more than once. Lowercase alphanumeric, keep short (name max 24 chars).')
+param nameSuffix string = ''
+
 @description('Azure region for the storage account.')
 param location string = resourceGroup().location
 
@@ -32,7 +35,7 @@ var storageTableDataContributorRoleId = '0a9a7e1f-b9d0-4cc4-a60d-0319b160aaa3'
 
 resource storage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   // Storage account names: lowercase, no hyphens, 3-24 chars (§3 naming).
-  name: 'stmdcado${env}'
+  name: 'stmdcado${env}${nameSuffix}'
   location: location
   tags: tags
   sku: {

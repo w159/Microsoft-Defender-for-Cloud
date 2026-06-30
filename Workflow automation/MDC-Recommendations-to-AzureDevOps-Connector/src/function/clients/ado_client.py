@@ -184,7 +184,8 @@ class AdoClient:
 
     def _url(self, path: str, api_version: str) -> str:
         """Build an absolute ADO REST URL for the configured org/project (§6.1)."""
-        return f"{self._org_url}/{self._project}/{path}?api-version={api_version}"
+        project = quote(self._project, safe="")
+        return f"{self._org_url}/{project}/{path}?api-version={api_version}"
 
     def _to_result(
         self, data: dict[str, Any], *, action: Literal["created", "updated"]

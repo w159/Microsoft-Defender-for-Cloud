@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.44.1.10279",
-      "templateHash": "11892444049606947413"
+      "templateHash": "9081437461424272667"
     }
   },
   "parameters": {
@@ -76,6 +76,13 @@
       "defaultValue": {},
       "metadata": {
         "description": "Extra tags merged onto the common tag set applied to every resource."
+      }
+    },
+    "nameSuffix": {
+      "type": "string",
+      "defaultValue": "[take(uniqueString(resourceGroup().id), 6)]",
+      "metadata": {
+        "description": "Optional suffix for globally-unique resource names (storage, Function app) so the template can be deployed more than once. Defaults to a short hash of the resource group id; override to pin a specific value. Lowercase alphanumeric, keep short."
       }
     },
     "adoOrgUrl": {
@@ -235,6 +242,9 @@
           },
           "identityPrincipalId": {
             "value": "[reference(resourceId('Microsoft.Resources/deployments', 'managed-identity'), '2025-04-01').outputs.principalId.value]"
+          },
+          "nameSuffix": {
+            "value": "[parameters('nameSuffix')]"
           }
         },
         "template": {
@@ -244,7 +254,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.44.1.10279",
-              "templateHash": "11563421332008270414"
+              "templateHash": "14836881803855574629"
             }
           },
           "parameters": {
@@ -252,6 +262,13 @@
               "type": "string",
               "metadata": {
                 "description": "Environment short name (dev | test | prod). Drives resource naming."
+              }
+            },
+            "nameSuffix": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Optional suffix appended to the globally-unique storage account name so the template can be deployed more than once. Lowercase alphanumeric, keep short (name max 24 chars)."
               }
             },
             "location": {
@@ -302,7 +319,7 @@
             {
               "type": "Microsoft.Storage/storageAccounts",
               "apiVersion": "2023-05-01",
-              "name": "[format('stmdcado{0}', parameters('env'))]",
+              "name": "[format('stmdcado{0}{1}', parameters('env'), parameters('nameSuffix'))]",
               "location": "[parameters('location')]",
               "tags": "[parameters('tags')]",
               "sku": {
@@ -324,62 +341,62 @@
             {
               "type": "Microsoft.Storage/storageAccounts/blobServices",
               "apiVersion": "2023-05-01",
-              "name": "[format('{0}/{1}', format('stmdcado{0}', parameters('env')), 'default')]",
+              "name": "[format('{0}/{1}', format('stmdcado{0}{1}', parameters('env'), parameters('nameSuffix')), 'default')]",
               "dependsOn": [
-                "[resourceId('Microsoft.Storage/storageAccounts', format('stmdcado{0}', parameters('env')))]"
+                "[resourceId('Microsoft.Storage/storageAccounts', format('stmdcado{0}{1}', parameters('env'), parameters('nameSuffix')))]"
               ]
             },
             {
               "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
               "apiVersion": "2023-05-01",
-              "name": "[format('{0}/{1}/{2}', format('stmdcado{0}', parameters('env')), 'default', parameters('deploymentContainerName'))]",
+              "name": "[format('{0}/{1}/{2}', format('stmdcado{0}{1}', parameters('env'), parameters('nameSuffix')), 'default', parameters('deploymentContainerName'))]",
               "properties": {
                 "publicAccess": "None"
               },
               "dependsOn": [
-                "[resourceId('Microsoft.Storage/storageAccounts/blobServices', format('stmdcado{0}', parameters('env')), 'default')]"
+                "[resourceId('Microsoft.Storage/storageAccounts/blobServices', format('stmdcado{0}{1}', parameters('env'), parameters('nameSuffix')), 'default')]"
               ]
             },
             {
               "type": "Microsoft.Authorization/roleAssignments",
               "apiVersion": "2022-04-01",
-              "scope": "[resourceId('Microsoft.Storage/storageAccounts', format('stmdcado{0}', parameters('env')))]",
-              "name": "[guid(resourceId('Microsoft.Storage/storageAccounts', format('stmdcado{0}', parameters('env'))), parameters('identityPrincipalId'), variables('storageBlobDataOwnerRoleId'))]",
+              "scope": "[resourceId('Microsoft.Storage/storageAccounts', format('stmdcado{0}{1}', parameters('env'), parameters('nameSuffix')))]",
+              "name": "[guid(resourceId('Microsoft.Storage/storageAccounts', format('stmdcado{0}{1}', parameters('env'), parameters('nameSuffix'))), parameters('identityPrincipalId'), variables('storageBlobDataOwnerRoleId'))]",
               "properties": {
                 "principalId": "[parameters('identityPrincipalId')]",
                 "principalType": "ServicePrincipal",
                 "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('storageBlobDataOwnerRoleId'))]"
               },
               "dependsOn": [
-                "[resourceId('Microsoft.Storage/storageAccounts', format('stmdcado{0}', parameters('env')))]"
+                "[resourceId('Microsoft.Storage/storageAccounts', format('stmdcado{0}{1}', parameters('env'), parameters('nameSuffix')))]"
               ]
             },
             {
               "type": "Microsoft.Authorization/roleAssignments",
               "apiVersion": "2022-04-01",
-              "scope": "[resourceId('Microsoft.Storage/storageAccounts', format('stmdcado{0}', parameters('env')))]",
-              "name": "[guid(resourceId('Microsoft.Storage/storageAccounts', format('stmdcado{0}', parameters('env'))), parameters('identityPrincipalId'), variables('storageQueueDataContributorRoleId'))]",
+              "scope": "[resourceId('Microsoft.Storage/storageAccounts', format('stmdcado{0}{1}', parameters('env'), parameters('nameSuffix')))]",
+              "name": "[guid(resourceId('Microsoft.Storage/storageAccounts', format('stmdcado{0}{1}', parameters('env'), parameters('nameSuffix'))), parameters('identityPrincipalId'), variables('storageQueueDataContributorRoleId'))]",
               "properties": {
                 "principalId": "[parameters('identityPrincipalId')]",
                 "principalType": "ServicePrincipal",
                 "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('storageQueueDataContributorRoleId'))]"
               },
               "dependsOn": [
-                "[resourceId('Microsoft.Storage/storageAccounts', format('stmdcado{0}', parameters('env')))]"
+                "[resourceId('Microsoft.Storage/storageAccounts', format('stmdcado{0}{1}', parameters('env'), parameters('nameSuffix')))]"
               ]
             },
             {
               "type": "Microsoft.Authorization/roleAssignments",
               "apiVersion": "2022-04-01",
-              "scope": "[resourceId('Microsoft.Storage/storageAccounts', format('stmdcado{0}', parameters('env')))]",
-              "name": "[guid(resourceId('Microsoft.Storage/storageAccounts', format('stmdcado{0}', parameters('env'))), parameters('identityPrincipalId'), variables('storageTableDataContributorRoleId'))]",
+              "scope": "[resourceId('Microsoft.Storage/storageAccounts', format('stmdcado{0}{1}', parameters('env'), parameters('nameSuffix')))]",
+              "name": "[guid(resourceId('Microsoft.Storage/storageAccounts', format('stmdcado{0}{1}', parameters('env'), parameters('nameSuffix'))), parameters('identityPrincipalId'), variables('storageTableDataContributorRoleId'))]",
               "properties": {
                 "principalId": "[parameters('identityPrincipalId')]",
                 "principalType": "ServicePrincipal",
                 "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('storageTableDataContributorRoleId'))]"
               },
               "dependsOn": [
-                "[resourceId('Microsoft.Storage/storageAccounts', format('stmdcado{0}', parameters('env')))]"
+                "[resourceId('Microsoft.Storage/storageAccounts', format('stmdcado{0}{1}', parameters('env'), parameters('nameSuffix')))]"
               ]
             }
           ],
@@ -389,21 +406,21 @@
               "metadata": {
                 "description": "Resource id of the storage account."
               },
-              "value": "[resourceId('Microsoft.Storage/storageAccounts', format('stmdcado{0}', parameters('env')))]"
+              "value": "[resourceId('Microsoft.Storage/storageAccounts', format('stmdcado{0}{1}', parameters('env'), parameters('nameSuffix')))]"
             },
             "name": {
               "type": "string",
               "metadata": {
                 "description": "Name of the storage account (used as AzureWebJobsStorage__accountName)."
               },
-              "value": "[format('stmdcado{0}', parameters('env'))]"
+              "value": "[format('stmdcado{0}{1}', parameters('env'), parameters('nameSuffix'))]"
             },
             "primaryBlobEndpoint": {
               "type": "string",
               "metadata": {
                 "description": "Primary blob endpoint (used by the Flex Consumption deployment storage config)."
               },
-              "value": "[reference(resourceId('Microsoft.Storage/storageAccounts', format('stmdcado{0}', parameters('env'))), '2023-05-01').primaryEndpoints.blob]"
+              "value": "[reference(resourceId('Microsoft.Storage/storageAccounts', format('stmdcado{0}{1}', parameters('env'), parameters('nameSuffix'))), '2023-05-01').primaryEndpoints.blob]"
             },
             "deploymentContainerName": {
               "type": "string",
@@ -607,6 +624,9 @@
           "deploymentContainerName": {
             "value": "[reference(resourceId('Microsoft.Resources/deployments', 'storage'), '2025-04-01').outputs.deploymentContainerName.value]"
           },
+          "nameSuffix": {
+            "value": "[parameters('nameSuffix')]"
+          },
           "instanceMemoryMB": {
             "value": "[parameters('instanceMemoryMB')]"
           },
@@ -636,7 +656,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.44.1.10279",
-              "templateHash": "17613489008559814618"
+              "templateHash": "10219137821816191905"
             }
           },
           "parameters": {
@@ -644,6 +664,13 @@
               "type": "string",
               "metadata": {
                 "description": "Environment short name (dev | test | prod). Drives resource naming."
+              }
+            },
+            "nameSuffix": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Optional suffix appended to the globally-unique Function app name so the template can be deployed more than once."
               }
             },
             "location": {
@@ -794,7 +821,7 @@
             {
               "type": "Microsoft.Web/sites",
               "apiVersion": "2024-11-01",
-              "name": "fa-mdc-ado-enricher",
+              "name": "[format('fa-mdc-ado-enricher{0}', parameters('nameSuffix'))]",
               "location": "[parameters('location')]",
               "tags": "[parameters('tags')]",
               "kind": "functionapp,linux",
@@ -884,7 +911,7 @@
               "condition": "[parameters('enableEasyAuth')]",
               "type": "Microsoft.Web/sites/config",
               "apiVersion": "2024-11-01",
-              "name": "[format('{0}/{1}', 'fa-mdc-ado-enricher', 'authsettingsV2')]",
+              "name": "[format('{0}/{1}', format('fa-mdc-ado-enricher{0}', parameters('nameSuffix')), 'authsettingsV2')]",
               "properties": {
                 "platform": {
                   "enabled": true
@@ -916,7 +943,7 @@
                 }
               },
               "dependsOn": [
-                "[resourceId('Microsoft.Web/sites', 'fa-mdc-ado-enricher')]"
+                "[resourceId('Microsoft.Web/sites', format('fa-mdc-ado-enricher{0}', parameters('nameSuffix')))]"
               ]
             }
           ],
@@ -926,21 +953,21 @@
               "metadata": {
                 "description": "Resource id of the Function App."
               },
-              "value": "[resourceId('Microsoft.Web/sites', 'fa-mdc-ado-enricher')]"
+              "value": "[resourceId('Microsoft.Web/sites', format('fa-mdc-ado-enricher{0}', parameters('nameSuffix')))]"
             },
             "name": {
               "type": "string",
               "metadata": {
                 "description": "Name of the Function App."
               },
-              "value": "fa-mdc-ado-enricher"
+              "value": "[format('fa-mdc-ado-enricher{0}', parameters('nameSuffix'))]"
             },
             "defaultHostname": {
               "type": "string",
               "metadata": {
                 "description": "Default hostname of the Function App (used by the Logic App to forward events)."
               },
-              "value": "[reference(resourceId('Microsoft.Web/sites', 'fa-mdc-ado-enricher'), '2024-11-01').defaultHostName]"
+              "value": "[reference(resourceId('Microsoft.Web/sites', format('fa-mdc-ado-enricher{0}', parameters('nameSuffix'))), '2024-11-01').defaultHostName]"
             }
           }
         }

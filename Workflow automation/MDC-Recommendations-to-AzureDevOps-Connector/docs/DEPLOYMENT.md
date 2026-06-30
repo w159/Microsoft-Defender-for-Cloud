@@ -63,9 +63,29 @@ python infra/ado/provision_ado_process.py --org <your-org> --project <your-proje
 Auth: the script uses `az account get-access-token` for the Azure DevOps resource, or set
 `ADO_TOKEN`.
 
-**Then, in the ADO portal (one-time, manual):** move your project onto the new process —
-*Organization settings → Boards → Process → "MDC Security" → ⋮ → Move projects → select your
-project*. Verify the project now exposes the **Security Recommendation** work-item type.
+### 3.1 Move the project onto the "MDC Security" process (one-time, manual)
+
+The provisioning script creates the **MDC Security** process but cannot move a project onto it
+(the REST surface for changing a project's process is not stable — a `PATCH` returns HTTP 400).
+Do it once in the portal. Two equivalent routes:
+
+**Primary route (from the process):**
+
+1. Go to `https://dev.azure.com/<your-org>` → bottom-left **Organization settings** (gear icon).
+2. Under **Boards**, click **Process**. You'll see Basic, Agile, Scrum, CMMI, and **MDC Security**
+   (inherited from Basic).
+3. Click the **⋮** (more actions) on the **MDC Security** row → **Move projects to MDC Security…**.
+4. Tick your project (e.g. **MDC Work Items**) → **Save** / **Move**.
+
+**Alternative route (from the Basic process — use this if the "Move projects" item isn't shown):**
+
+1. **Organization settings** → **Boards** → **Process** → click **Basic**.
+2. Open the **Projects** tab → find your project → its **⋮** → **Change process**.
+3. Pick **MDC Security** → step through the wizard → **Confirm**.
+
+**Verify:** open the project → **Boards** → **Work items** → **+ New Work Item** dropdown now lists
+**Security Recommendation**. (The move is non-destructive and reversible — you can move the project
+back to Basic later.)
 
 ---
 
