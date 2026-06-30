@@ -1,0 +1,25 @@
+{
+  "id": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-web-prod/providers/Microsoft.Security/assessments/1195afff-c881-495e-9bc5-1486211ae03f",
+  "name": "1195afff-c881-495e-9bc5-1486211ae03f",
+  "type": "Microsoft.Security/assessments",
+  "properties": {
+    "displayName": "Endpoint protection should be installed on your machines",
+    "resourceDetails": {
+      "source": "Azure",
+      "id": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-web-prod/providers/Microsoft.Compute/virtualMachines/contoso-web-01"
+    },
+    "status": {
+      "code": "Unhealthy",
+      "cause": "",
+      "description": "Endpoint protection solution was not found on the machine."
+    },
+    "metadata": {
+      "severity": "High",
+      "assessmentType": "BuiltIn",
+      "description": "Install an endpoint protection solution on your virtual machines to protect them from threats and vulnerabilities.",
+      "remediationDescription": "To install an endpoint protection solution: 1. Follow the instructions in How do I turn on antimalware in my Azure VM.",
+      "categories": ["Compute"]
+    },
+    "statusChangeDate": "2026-06-08T10:00:00Z"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "id": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-data-prod/providers/Microsoft.Security/assessments/8e2a1b3c-4d5e-6f70-8192-a3b4c5d6e7f8",
+  "name": "8e2a1b3c-4d5e-6f70-8192-a3b4c5d6e7f8",
+  "type": "Microsoft.Security/assessments",
+  "properties": {
+    "displayName": "Secure transfer to storage accounts should be enabled",
+    "resourceDetails": {
+      "source": "Azure",
+      "id": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-data-prod/providers/Microsoft.Storage/storageAccounts/contosodatalake"
+    },
+    "status": {
+      "code": "Unhealthy",
+      "cause": "",
+      "description": "Secure transfer is not enforced on this storage account."
+    },
+    "metadata": {
+      "severity": "Medium",
+      "assessmentType": "BuiltIn",
+      "description": "Secure transfer is an option that forces the storage account to accept requests only from secure connections (HTTPS).",
+      "remediationDescription": "To enable secure transfer required: 1. Open the storage account. 2. Under Settings, set 'Secure transfer required' to Enabled.",
+      "categories": ["Data"]
+    },
+    "statusChangeDate": "2026-06-15T14:30:00Z"
+  }
+}

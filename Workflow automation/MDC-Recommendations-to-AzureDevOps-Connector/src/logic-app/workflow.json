@@ -1,0 +1,70 @@
+{
+  "definition": {
+    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+      "functionUrl": {
+        "type": "String",
+        "metadata": {
+          "description": "EnrichAndCreate Function endpoint to forward to (§5.1 step 3). Injected by Bicep."
+        }
+      },
+      "functionAudience": {
+        "type": "String",
+        "metadata": {
+          "description": "Entra audience (api://<clientId>) the MI requests a token for via Easy Auth (§6.3). Injected by Bicep."
+        }
+      },
+      "functionMiResourceId": {
+        "type": "String",
+        "metadata": {
+          "description": "Resource id of the user-assigned MI the HTTP action authenticates with (§6.3). Injected by Bicep."
+        }
+      }
+    },
+    "triggers": {
+      "When_an_MDC_recommendation_arrives": {
+        "type": "Request",
+        "kind": "Http",
+        "inputs": {
+          "schema": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "properties": { "type": "object" }
+            }
+          }
+        }
+      }
+    },
+    "actions": {
+      "Forward_to_Function": {
+        "type": "Http",
+        "runAfter": {},
+        "inputs": {
+          "method": "POST",
+          "uri": "@parameters('functionUrl')",
+          "headers": { "Content-Type": "application/json" },
+          "body": "@triggerBody()",
+          "authentication": {
+            "type": "ManagedServiceIdentity",
+            "identity": "@parameters('functionMiResourceId')",
+            "audience": "@parameters('functionAudience')"
+          }
+        }
+      },
+      "Notify_On_Forward_Failure": {
+        "type": "Compose",
+        "runAfter": {
+          "Forward_to_Function": [ "Failed", "TimedOut" ]
+        },
+        "inputs": {
+          "status": "mdc-ado-dispatch-failed",
+          "statusCode": "@outputs('Forward_to_Function')?['statusCode']",
+          "assessmentName": "@triggerBody()?['name']"
+        }
+      }
+    },
+    "outputs": {}
+  }
+}

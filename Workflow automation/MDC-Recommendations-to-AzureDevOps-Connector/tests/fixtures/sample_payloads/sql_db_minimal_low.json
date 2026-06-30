@@ -1,0 +1,10 @@
+{
+  "id": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-sql-prod/providers/Microsoft.Security/assessments/c0ffee00-dead-beef-cafe-0123456789ab",
+  "name": "c0ffee00-dead-beef-cafe-0123456789ab",
+  "type": "Microsoft.Security/assessments",
+  "properties": {
+    "resourceDetails": {
+      "id": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-sql-prod/providers/Microsoft.Sql/servers/contoso-sql-01/databases/orders"
+    }
+  }
+}

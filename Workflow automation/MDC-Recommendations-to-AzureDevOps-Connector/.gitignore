@@ -1,0 +1,36 @@
+# Python virtual environments
+.venv/
+venv/
+
+# Python caches
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Azure Functions local
+local.settings.json
+bin/
+obj/
+
+# Real Bicep parameter files (copy from *.bicepparam.example and fill in).
+# The .example templates ARE tracked.
+infra/parameters/*.bicepparam
+!infra/parameters/*.bicepparam.example
+infra/parameters/*.json
+
+# NOTE: infra/main.json (compiled ARM) IS tracked so the "Deploy to Azure" button works.
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/*.log
