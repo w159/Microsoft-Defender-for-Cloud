@@ -74,7 +74,12 @@ still publish the Function code and complete the one-time manual steps (see DEPL
 
 ### Option B — CLI (clone + script)
 
+Clone the repository and work from this connector folder:
+
 ```bash
+git clone https://github.com/Azure/Microsoft-Defender-for-Cloud.git
+cd "Microsoft-Defender-for-Cloud/Workflow automation/MDC-Recommendations-to-AzureDevOps-Connector"
+
 # 1. Provision the ADO process / work-item type (dry-run first; then --apply)
 python infra/ado/provision_ado_process.py --org <your-org> --project <your-project>
 python infra/ado/provision_ado_process.py --org <your-org> --project <your-project> --apply

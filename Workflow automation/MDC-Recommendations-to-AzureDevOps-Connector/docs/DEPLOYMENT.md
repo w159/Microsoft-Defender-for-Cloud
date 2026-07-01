@@ -98,13 +98,18 @@ default). Storage data-plane RBAC for the MI is created by the template at stora
 
 ### Option A — Portal ("Deploy to Azure")
 
-1. Push this repo to GitHub and update the button URL in the [README](../README.md) to your
-   `<owner>/<repo>`.
-2. Click **Deploy to Azure**. The portal reads `infra/main.json` and prompts for parameters
-   (resource group, `env`, `adoOrgUrl`, `adoProject`, `functionApiClientId`, write-back options).
+1. In the [README](../README.md), click **Deploy to Azure**. The button targets this folder's ARM
+   template in the Azure repo (`.../Workflow automation/MDC-Recommendations-to-AzureDevOps-Connector/infra/main.json`), so no clone or fork is needed.
+2. The portal reads `infra/main.json` and prompts for parameters (resource group, `env`,
+   `adoOrgUrl`, `adoProject`, `functionApiClientId` — the app-registration client id from step 2 —
+   and the write-back options). `nameSuffix` defaults to a short hash of the resource-group id so
+   the globally-unique names don't collide; leave it as-is.
 3. Review and create. This provisions **infrastructure only** — continue with sections 5–7.
 
 ### Option B — CLI
+
+> All CLI paths below are relative to **this connector folder**. If you cloned the whole repo, first
+> `cd "Workflow automation/MDC-Recommendations-to-AzureDevOps-Connector"`.
 
 ```bash
 cp infra/parameters/dev.bicepparam.example infra/parameters/dev.bicepparam
@@ -247,7 +252,7 @@ You can POST a sample payload straight to the Logic App callback URL, bypassing 
 ```bash
 # Get the Logic App callback (trigger) URL.
 CALLBACK=$(az rest --method post \
-  --url "https://management.azure.com/subscriptions/$SUB/resourceGroups/rg-mdc-ado-dev/providers/Microsoft.Logic/workflows/la-mdc-ado-dispatcher/triggers/<trigger-name>/listCallbackUrl?api-version=2019-05-01" \
+  --url "https://management.azure.com/subscriptions/$SUB/resourceGroups/rg-mdc-ado-dev/providers/Microsoft.Logic/workflows/la-mdc-ado-dispatcher/triggers/When_an_MDC_recommendation_arrives/listCallbackUrl?api-version=2019-05-01" \
   --query value -o tsv)
 
 # Send a sample recommendation.
