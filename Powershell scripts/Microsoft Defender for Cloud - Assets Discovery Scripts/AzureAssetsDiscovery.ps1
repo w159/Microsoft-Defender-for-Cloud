@@ -90,6 +90,15 @@ if ($runAdditionalDataCollection -eq 'yes' -or $runAdditionalDataCollection -eq 
     } else {
         Write-Warning "Azure CLI not found. Container Registry Images collection will be skipped. Install from: https://aka.ms/installazurecli"
     }
+} else {
+    # Serverless Containers is a split metric: the ACI portion is always counted via Resource Graph,
+    # but the ACA (Azure Container Apps) replica portion is only collected during extended data collection.
+    # Skipping extended collection therefore yields a PARTIAL DCSPM_ServerlessContainers value.
+    Write-Host ""
+    Write-Host "NOTE: Extended data collection skipped. The 'DCSPM_ServerlessContainers' value will be PARTIAL -" -ForegroundColor Yellow
+    Write-Host "      it includes only running Azure Container Instances (ACI, counted via Resource Graph) and" -ForegroundColor Yellow
+    Write-Host "      does NOT include Azure Container Apps (ACA) replica counts. Re-run with extended data" -ForegroundColor Yellow
+    Write-Host "      collection enabled to capture the full Serverless Containers number." -ForegroundColor Yellow
 }
 
 Write-Host "`n=== Configuration complete. Running data collection... ===`n" -ForegroundColor Green
@@ -112,7 +121,7 @@ foreach ($sub in $subscriptions) {
         # Resource-based plans
         Servers                     = 0   # VMs (excluding AKS nodes)
         Containers                  = 0   # Node count
-        ServerlessContainers        = 0   # Running ACI containers (ARG) + replica-adjusted ACA containers (metrics)
+        DCSPM_ServerlessContainers  = 0   # Running ACI containers (ARG) + replica-adjusted ACA containers (metrics)
         AppServices                 = 0
         KeyVaults                   = 0
         ARM                         = 1   # Always 1 per subscription
@@ -254,7 +263,7 @@ foreach ($result in $resourceResults) {
                 $subscriptionResults[$subId].DCSPM_Serverless += $count
             }
             'serverlesscontainers' { 
-                $subscriptionResults[$subId].ServerlessContainers += $count
+                $subscriptionResults[$subId].DCSPM_ServerlessContainers += $count
             }
             'keyvaults' { 
                 $subscriptionResults[$subId].KeyVaults += $count
@@ -472,7 +481,7 @@ if ($runAdditionalDataCollection -eq "yes" -or $runAdditionalDataCollection -eq 
     # ========================================================================
     # Serverless Containers - Azure Container Apps (ACA), replica-adjusted count
     # The main ARG query already counted running Azure Container Instances (ACI) containers into
-    # the ServerlessContainers column. This section ADDS Azure Container Apps: for each running app
+    # the DCSPM_ServerlessContainers column. This section ADDS Azure Container Apps: for each running app
     # we read the 30-day average "Replicas" metric (per revision) and multiply by the app's template
     # container count, mirroring how Defender bills serverless containers.
     # ========================================================================
@@ -571,8 +580,8 @@ if ($runAdditionalDataCollection -eq "yes" -or $runAdditionalDataCollection -eq 
 
         Write-Host "  Azure Container Apps containers (replica-adjusted, 30-day avg): $totalAcaContainersForSubscription"
         if ($totalAcaContainersForSubscription -gt 0) {
-            # Add ACA containers on top of the ARG-counted ACI containers already in ServerlessContainers.
-            $subscriptionResults[$sub.Id].ServerlessContainers += $totalAcaContainersForSubscription
+            # Add ACA containers on top of the ARG-counted ACI containers already in DCSPM_ServerlessContainers.
+            $subscriptionResults[$sub.Id].DCSPM_ServerlessContainers += $totalAcaContainersForSubscription
         }
     }
     $swAca.Stop()

@@ -25,7 +25,7 @@ The output CSV contains the following columns:
 | `Servers` | **The value to use for the Servers plan.** VM count with AKS node-pool VMs already removed, because when both **Servers** and **Containers** plans are enabled those node VMs are billed under Containers — excluding them here prevents double-counting. |
 | `Servers_All` | **Reference only.** Total VM count *including* AKS node-pool VMs. Use this column instead of `Servers` if you do **not** plan to enable the Containers plan, so AKS nodes still get protected (and counted) under Servers. |
 | `Containers` | AKS node count — point-in-time from ARG, replaced by the 30-day average of `kube_node_status_condition` (Ready) when extended collection is enabled |
-| `ServerlessContainers` | **The value to use for the Containers plan's serverless (per-container) meter.** Running **Azure Container Instances (ACI)** containers counted from ARG (only container groups whose power state is `Running`, counting only the containers inside that are themselves `Running`), plus — when extended collection is enabled — the 30-day average, replica-adjusted container count of running **Azure Container Apps (ACA)** |
+| `DCSPM_ServerlessContainers` | **The value to use for the Containers plan's serverless (per-container) meter.** Running **Azure Container Instances (ACI)** containers counted from ARG (only container groups whose power state is `Running`, counting only the containers inside that are themselves `Running`), plus — when extended collection is enabled — the 30-day average, replica-adjusted container count of running **Azure Container Apps (ACA)** |
 | `AppServices` | Sum of workers from `microsoft.web/serverfarms` (Consumption-tier plans are excluded) |
 | `KeyVaults` | Count of Key Vaults |
 | `ARM` | Always `1` per subscription |
@@ -92,7 +92,7 @@ into the matching fields in the UI.
 - Container node counts start as a point-in-time ARG value and are replaced by the
   30-day average of the `kube_node_status_condition` Ready metric when extended
   collection is enabled — more accurate for clusters that use the autoscaler.
-- **`ServerlessContainers`** combines two serverless container sources billed under the
+- **`DCSPM_ServerlessContainers`** combines two serverless container sources billed under the
   Containers plan: **Azure Container Instances (ACI)** are always counted from ARG
   (running containers inside running container groups), and **Azure Container Apps (ACA)**
   are added during extended collection using the 30-day average `Replicas` metric (summed
