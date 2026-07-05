@@ -76,7 +76,7 @@ try {
 Write-Host "`n=== Configuration ===" -ForegroundColor Cyan
 Write-Host "Please answer the following questions. Once done, the script will run unattended.`n" -ForegroundColor Yellow
 
-$runAdditionalDataCollection = Read-Host "Do you want to run extended data collection for usage-based signals (Containers node count, API requests, CosmosDB RU/s, Malware Scanning GB, AI tokens, Container Registry Images)? This can take longer depending on the size of your environment. Selecting 'no' will skip all extended data collection. (y/n)"
+$runAdditionalDataCollection = Read-Host "Do you want to run extended data collection for usage-based signals (Containers node count, Serverless Containers (Azure Container Apps), API requests, CosmosDB RU/s, Malware Scanning GB, AI tokens, Container Registry Images)? This can take longer depending on the size of your environment. Selecting 'no' will skip all extended data collection. (y/n)"
 
 $runAcrCollection = 'n'
 if ($runAdditionalDataCollection -eq 'yes' -or $runAdditionalDataCollection -eq 'y') {
@@ -90,6 +90,15 @@ if ($runAdditionalDataCollection -eq 'yes' -or $runAdditionalDataCollection -eq 
     } else {
         Write-Warning "Azure CLI not found. Container Registry Images collection will be skipped. Install from: https://aka.ms/installazurecli"
     }
+} else {
+    # Serverless Containers is a split metric: the ACI portion is always counted via Resource Graph,
+    # but the ACA (Azure Container Apps) replica portion is only collected during extended data collection.
+    # Skipping extended collection therefore yields a PARTIAL DCSPM_ServerlessContainers value.
+    Write-Host ""
+    Write-Host "NOTE: Extended data collection skipped. The 'DCSPM_ServerlessContainers' value will be PARTIAL -" -ForegroundColor Yellow
+    Write-Host "      it includes only running Azure Container Instances (ACI, counted via Resource Graph) and" -ForegroundColor Yellow
+    Write-Host "      does NOT include Azure Container Apps (ACA) replica counts. Re-run with extended data" -ForegroundColor Yellow
+    Write-Host "      collection enabled to capture the full Serverless Containers number." -ForegroundColor Yellow
 }
 
 Write-Host "`n=== Configuration complete. Running data collection... ===`n" -ForegroundColor Green
@@ -122,6 +131,7 @@ foreach ($sub in $subscriptions) {
         DCSPM_Storage               = 0   # Storage accounts
         DCSPM_Databases             = 0   # SQL, OpenSourceDBs
         DCSPM_Serverless            = 0   # Web Apps, Function Apps
+        DCSPM_ServerlessContainers  = 0   # Running ACI containers (ARG) + replica-adjusted ACA containers (metrics)
         # Consumption-based plans
         API_Requests                = 0
         CosmosDB_RUs                = 0
@@ -178,15 +188,7 @@ function Invoke-AzGraphQueryPaged {
 Write-Host "`n=== Collecting Resource-Based Plan Data ===" -ForegroundColor Cyan
 
 $resourceQuery = @"
-(securityresources
-    | extend type = tolower(type)
-    | where type == 'microsoft.security/assessments'
-    | where name == '44d12760-2cf2-4e6d-8613-8451c11c1abc' 
-    | extend bundleName = 'virtualmachines'
-    | summarize resourcesCount = count() by subscriptionId, bundleName
-)
-| union 
-(resources
+resources
     | extend type = tolower(type)
     | where type in ('microsoft.compute/virtualmachines', 'microsoft.classiccompute/virtualmachines', 'microsoft.hybridcompute/machines', 'microsoft.compute/virtualmachinescalesets', 'microsoft.sql/servers', 'microsoft.storage/storageaccounts', 'microsoft.documentdb/databaseaccounts', 'microsoft.keyvault/vaults', 'microsoft.web/serverfarms', 'microsoft.dbforpostgresql/servers', 'microsoft.dbforpostgresql/flexibleservers', 'microsoft.dbformysql/servers', 'microsoft.dbformysql/flexibleservers', 'microsoft.apimanagement/service', 'microsoft.sqlvirtualmachine/sqlvirtualmachines', 'microsoft.azurearcdata/sqlserverinstances', 'microsoft.cognitiveservices/accounts', 'microsoft.web/sites')
     | parse id with '/subscriptions/'subscriptionId'/'rest
@@ -207,6 +209,28 @@ $resourceQuery = @"
     | mv-expand bundleName to typeof(string) limit 2000
     | summarize resourcesCount = sum(bundleCount) by bundleName, subscriptionId
     | where bundleName != ''
+| union
+(securityresources
+    | extend type = tolower(type)
+    | where type == 'microsoft.security/assessments'
+    | where name == '44d12760-2cf2-4e6d-8613-8451c11c1abc'
+    | extend bundleName = 'virtualmachines'
+    | summarize resourcesCount = count() by subscriptionId, bundleName
+)
+| union
+// Serverless containers - Azure Container Instances (ACI).
+// Gate on the container group power state (instanceView.state == 'running'), then count only
+// the containers inside that are themselves running (currentState.state == 'running');
+// stopped/terminated/waiting containers are excluded.
+(resources
+    | extend type = tolower(type)
+    | where type == 'microsoft.containerinstance/containergroups'
+    | where tolower(tostring(properties.instanceView.state)) == 'running'
+    | parse id with '/subscriptions/'subscriptionId'/'rest
+    | mv-expand container = properties.containers
+    | where tolower(tostring(container.properties.instanceView.currentState.state)) == 'running'
+    | summarize resourcesCount = count() by subscriptionId
+    | extend bundleName = 'serverlesscontainers'
 )
 | summarize resourcesCount = sum(resourcesCount) by bundleName, subscriptionId
 "@
@@ -237,6 +261,9 @@ foreach ($result in $resourceResults) {
             }
             'cloudposture_serverless' { 
                 $subscriptionResults[$subId].DCSPM_Serverless += $count
+            }
+            'serverlesscontainers' { 
+                $subscriptionResults[$subId].DCSPM_ServerlessContainers += $count
             }
             'keyvaults' { 
                 $subscriptionResults[$subId].KeyVaults += $count
@@ -367,14 +394,15 @@ if ($runAdditionalDataCollection -eq "yes" -or $runAdditionalDataCollection -eq 
     # ========================================================================
     # Total extended collection steps for overall progress.
     # Keep this in sync with the number of $extStepCurrent++ increments below.
-    # The 6 steps are:
+    # The 7 steps are:
     #   1. Containers (Metrics-Based node count)
-    #   2. API (Apim request units)
-    #   3. CosmosDB (RU/s)
-    #   4. Malware Scanning (Storage Ingress GB)
-    #   5. AI (Tokens)
-    #   6. Container Registry Images
-    $EXTENDED_COLLECTION_STEP_COUNT = 6
+    #   2. Serverless Containers (Azure Container Apps replicas)
+    #   3. API (Apim request units)
+    #   4. CosmosDB (RU/s)
+    #   5. Malware Scanning (Storage Ingress GB)
+    #   6. AI (Tokens)
+    #   7. Container Registry Images
+    $EXTENDED_COLLECTION_STEP_COUNT = 7
     $extStepTotal = $EXTENDED_COLLECTION_STEP_COUNT
     $extStepCurrent = 0
 
@@ -449,6 +477,117 @@ if ($runAdditionalDataCollection -eq "yes" -or $runAdditionalDataCollection -eq 
     Write-Progress -Id 1 -Activity "Containers (Metrics-Based)" -Completed
     $sectionTimings['Containers (Node Count Metrics)'] = $swContainers.Elapsed
     Write-Host "  >> Containers metrics collection took: $($swContainers.Elapsed.ToString('hh\:mm\:ss\.ff'))" -ForegroundColor Yellow
+
+    # ========================================================================
+    # Serverless Containers - Azure Container Apps (ACA), replica-adjusted count
+    # The main ARG query already counted running Azure Container Instances (ACI) containers into
+    # the DCSPM_ServerlessContainers column. This section ADDS Azure Container Apps: for each running app
+    # we read the 30-day average "Replicas" metric (per revision) and multiply by the app's template
+    # container count, mirroring how Defender bills serverless containers.
+    # ========================================================================
+    Write-Host "`n=== Collecting Serverless Containers (Azure Container Apps) ===" -ForegroundColor Cyan
+    $swAca = [System.Diagnostics.Stopwatch]::StartNew()
+    $extStepCurrent++
+    $subIndex = 0
+
+    foreach ($sub in $subscriptions) {
+        $subIndex++
+        Write-Progress -Id 0 -Activity "Extended Data Collection" -Status "Step $extStepCurrent of $extStepTotal : Serverless Containers (Container Apps)" -PercentComplete (($extStepCurrent / $extStepTotal) * 100)
+        Write-Progress -Id 1 -Activity "Serverless Containers (Container Apps)" -Status "Subscription $subIndex of ${subTotal}: $($sub.Name)" -PercentComplete (($subIndex / $subTotal) * 100)
+        Write-Host "Processing Subscription: $($sub.Name) - $($sub.Id) for serverless containers (Azure Container Apps)"
+
+        # Follow nextLink so large subscriptions aren't undercounted.
+        try {
+            $containerApps = @()
+            $nextLink = "/subscriptions/$($sub.Id)/providers/Microsoft.App/containerApps?api-version=2024-03-01"
+
+            while ($nextLink) {
+                if ($nextLink -match '^https?://') {
+                    $response = Invoke-AzRestMethod -Method GET -Uri $nextLink -ErrorAction Stop
+                } else {
+                    $response = Invoke-AzRestMethod -Method GET -Path $nextLink -ErrorAction Stop
+                }
+
+                # Guard against silent under-counting on 401/403 (see APIM section for rationale).
+                if ($response.StatusCode -ge 400) {
+                    Write-Warning "Failed to list Azure Container Apps in Subscription: $($sub.Name) (Status: $($response.StatusCode)). Skipping."
+                    break
+                }
+
+                $page = $response.Content | ConvertFrom-Json
+                if ($page.PSObject.Properties['value'] -and $page.value) {
+                    $containerApps += $page.value
+                }
+                $nextLink = if ($page.PSObject.Properties['nextLink']) { $page.nextLink } else { $null }
+            }
+
+            if (-not $containerApps) {
+                Write-Host "  No Azure Container Apps found in Subscription: $($sub.Name)"
+                continue
+            }
+        } catch {
+            Write-Warning "Failed to retrieve Azure Container Apps in Subscription: $($sub.Name). Error: $_"
+            continue
+        }
+
+        $startTime = (Get-Date).AddDays(-30).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+        $endTime = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+
+        $totalAcaContainersForSubscription = 0
+
+        foreach ($app in $containerApps) {
+            # Only count apps in a running state (Running or RunningAtMaxScale); a missing
+            # runningStatus is not billable, so skip it as well.
+            if (-not $app.properties.runningStatus -or (@("running", "runningatmaxscale") -notcontains $app.properties.runningStatus.ToString().ToLower())) {
+                continue
+            }
+
+            $resourceId = $app.id
+            $containerCount = 0
+            if ($app.properties.template -and $app.properties.template.containers) {
+                $containerCount = ($app.properties.template.containers | Measure-Object).Count
+            }
+
+            if ($containerCount -le 0) {
+                continue
+            }
+
+            # Default to 1 replica so a running app with no metric data still counts its template containers.
+            # "Replicas" is emitted per revision (dimension: revisionName). Split by revisionName and sum each
+            # revision's 30-day average so multi-revision apps count all running replicas across revisions,
+            # averaged over the 30-day window. Non-running revisions report 0 replicas and are excluded naturally.
+            $averageReplicas = 1
+            try {
+                $metrics = Get-AzMetric -ResourceId $resourceId -MetricName "Replicas" -StartTime $startTime -EndTime $endTime -AggregationType Average -TimeGrain 01:00:00 -MetricFilter "revisionName eq '*'" -ErrorAction Stop -WarningAction SilentlyContinue
+                if ($metrics -ne $null -and $metrics.Timeseries -ne $null -and $metrics.Timeseries.Count -gt 0) {
+                    $summedReplicas = 0
+                    foreach ($ts in $metrics.Timeseries) {
+                        $revAverage = ($ts.Data | Where-Object { $_.Average -ne $null } | Measure-Object Average -Average).Average
+                        if ($revAverage -ne $null -and $revAverage -gt 0) {
+                            $summedReplicas += $revAverage
+                        }
+                    }
+                    if ($summedReplicas -gt 0) {
+                        $averageReplicas = $summedReplicas
+                    }
+                }
+            } catch {
+                Write-Warning "    Error retrieving Replicas metric for Container App $($resourceId): $($_.Exception.Message)"
+            }
+
+            $totalAcaContainersForSubscription += [math]::Round($averageReplicas * $containerCount)
+        }
+
+        Write-Host "  Azure Container Apps containers (replica-adjusted, 30-day avg): $totalAcaContainersForSubscription"
+        if ($totalAcaContainersForSubscription -gt 0) {
+            # Add ACA containers on top of the ARG-counted ACI containers already in DCSPM_ServerlessContainers.
+            $subscriptionResults[$sub.Id].DCSPM_ServerlessContainers += $totalAcaContainersForSubscription
+        }
+    }
+    $swAca.Stop()
+    Write-Progress -Id 1 -Activity "Serverless Containers (Container Apps)" -Completed
+    $sectionTimings['Serverless Containers (Container Apps)'] = $swAca.Elapsed
+    Write-Host "  >> Serverless Containers (Container Apps) collection took: $($swAca.Elapsed.ToString('hh\:mm\:ss\.ff'))" -ForegroundColor Yellow
 
     # ========================================================================
     # API Plan - Total Requests

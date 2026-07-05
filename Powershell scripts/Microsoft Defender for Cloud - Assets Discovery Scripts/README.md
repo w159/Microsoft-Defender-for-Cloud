@@ -34,6 +34,7 @@ The output CSV contains the following columns:
 | `DCSPM_Storage` | Storage accounts |
 | `DCSPM_Databases` | SQL servers + non-Basic OSS DBs + CosmosDB accounts |
 | `DCSPM_Serverless` | Eligible `microsoft.web/sites` (App + Function apps, all supported kinds) |
+| `DCSPM_ServerlessContainers` | Running **ACI** containers (from ARG) plus, when extended collection is enabled, replica-adjusted running **ACA** containers (see notes) |
 | `API_Requests` | Sum of APIM `Requests` metric across all APIM services (last 30 days) |
 | `CosmosDB_RUs` | Equivalent RU/s — provisioned databases/containers (incl. autoscale avg-hourly-max, multiplied by replica region count) + serverless (Total RU × 0.00003125) |
 | `MalwareScanning_GB` | Storage account blob `Ingress` (last 30 days), summed across accounts in the subscription, in GB |
@@ -66,7 +67,7 @@ Connect-AzAccount
 
 You will be asked two questions up-front, then the script runs unattended:
 
-1. **Run extended (consumption-based) data collection?** Adds metrics-based AKS node averages, APIM requests, CosmosDB RU/s, Malware Scanning ingress GB, AI tokens, and (optionally) Container Registry image counts. Can take a while on large tenants.
+1. **Run extended (consumption-based) data collection?** Adds metrics-based AKS node averages, Azure Container Apps replica-adjusted container counts, APIM requests, CosmosDB RU/s, Malware Scanning ingress GB, AI tokens, and (optionally) Container Registry image counts. Can take a while on large tenants.
 2. **Include Container Registry images?** Only asked if you said yes to (1) and the Azure CLI is installed. Requires `AcrPull` on each registry.
 
 The script writes `AzureRawBillableData_<timestamp>.csv` to the current working directory.
@@ -91,6 +92,12 @@ into the matching fields in the UI.
 - Container node counts start as a point-in-time ARG value and are replaced by the
   30-day average of the `kube_node_status_condition` Ready metric when extended
   collection is enabled — more accurate for clusters that use the autoscaler.
+- **`DCSPM_ServerlessContainers`** combines two serverless container sources billed under the
+  Containers plan: **Azure Container Instances (ACI)** are always counted from ARG
+  (running containers inside running container groups), and **Azure Container Apps (ACA)**
+  are added during extended collection using the 30-day average `Replicas` metric (summed
+  per revision) multiplied by each running app's template container count. Apps with no
+  metric data still count 1 replica; stopped/scaled-to-zero apps and revisions are excluded.
 - CosmosDB RU/s mirrors Defender for Cosmos billing: provisioned offers (per
   database/container) are multiplied by the account's replica region count, and
   serverless RU consumption is converted to equivalent RU/s using Microsoft's
