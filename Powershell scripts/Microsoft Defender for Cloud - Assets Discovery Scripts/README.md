@@ -25,6 +25,7 @@ The output CSV contains the following columns:
 | `Servers` | **The value to use for the Servers plan.** VM count with AKS node-pool VMs already removed, because when both **Servers** and **Containers** plans are enabled those node VMs are billed under Containers — excluding them here prevents double-counting. |
 | `Servers_All` | **Reference only.** Total VM count *including* AKS node-pool VMs. Use this column instead of `Servers` if you do **not** plan to enable the Containers plan, so AKS nodes still get protected (and counted) under Servers. |
 | `Containers` | AKS node count — point-in-time from ARG, replaced by the 30-day average of `kube_node_status_condition` (Ready) when extended collection is enabled |
+| `ServerlessContainers` | **The value to use for the Containers plan's serverless (per-container) meter.** Running **Azure Container Instances (ACI)** containers counted from ARG (only container groups whose power state is `Running`, counting only the containers inside that are themselves `Running`), plus — when extended collection is enabled — the 30-day average, replica-adjusted container count of running **Azure Container Apps (ACA)** |
 | `AppServices` | Sum of workers from `microsoft.web/serverfarms` (Consumption-tier plans are excluded) |
 | `KeyVaults` | Count of Key Vaults |
 | `ARM` | Always `1` per subscription |
@@ -66,7 +67,7 @@ Connect-AzAccount
 
 You will be asked two questions up-front, then the script runs unattended:
 
-1. **Run extended (consumption-based) data collection?** Adds metrics-based AKS node averages, APIM requests, CosmosDB RU/s, Malware Scanning ingress GB, AI tokens, and (optionally) Container Registry image counts. Can take a while on large tenants.
+1. **Run extended (consumption-based) data collection?** Adds metrics-based AKS node averages, Azure Container Apps replica-adjusted container counts, APIM requests, CosmosDB RU/s, Malware Scanning ingress GB, AI tokens, and (optionally) Container Registry image counts. Can take a while on large tenants.
 2. **Include Container Registry images?** Only asked if you said yes to (1) and the Azure CLI is installed. Requires `AcrPull` on each registry.
 
 The script writes `AzureRawBillableData_<timestamp>.csv` to the current working directory.
@@ -91,6 +92,12 @@ into the matching fields in the UI.
 - Container node counts start as a point-in-time ARG value and are replaced by the
   30-day average of the `kube_node_status_condition` Ready metric when extended
   collection is enabled — more accurate for clusters that use the autoscaler.
+- **`ServerlessContainers`** combines two serverless container sources billed under the
+  Containers plan: **Azure Container Instances (ACI)** are always counted from ARG
+  (running containers inside running container groups), and **Azure Container Apps (ACA)**
+  are added during extended collection using the 30-day average `Replicas` metric (summed
+  per revision) multiplied by each running app's template container count. Apps with no
+  metric data still count 1 replica; stopped/scaled-to-zero apps and revisions are excluded.
 - CosmosDB RU/s mirrors Defender for Cosmos billing: provisioned offers (per
   database/container) are multiplied by the account's replica region count, and
   serverless RU consumption is converted to equivalent RU/s using Microsoft's
