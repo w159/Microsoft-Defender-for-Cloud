@@ -121,7 +121,6 @@ foreach ($sub in $subscriptions) {
         # Resource-based plans
         Servers                     = 0   # VMs (excluding AKS nodes)
         Containers                  = 0   # Node count
-        DCSPM_ServerlessContainers  = 0   # Running ACI containers (ARG) + replica-adjusted ACA containers (metrics)
         AppServices                 = 0
         KeyVaults                   = 0
         ARM                         = 1   # Always 1 per subscription
@@ -132,6 +131,7 @@ foreach ($sub in $subscriptions) {
         DCSPM_Storage               = 0   # Storage accounts
         DCSPM_Databases             = 0   # SQL, OpenSourceDBs
         DCSPM_Serverless            = 0   # Web Apps, Function Apps
+        DCSPM_ServerlessContainers  = 0   # Running ACI containers (ARG) + replica-adjusted ACA containers (metrics)
         # Consumption-based plans
         API_Requests                = 0
         CosmosDB_RUs                = 0

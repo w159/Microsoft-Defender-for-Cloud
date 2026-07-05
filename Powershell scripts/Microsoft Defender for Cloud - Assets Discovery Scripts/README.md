@@ -25,7 +25,6 @@ The output CSV contains the following columns:
 | `Servers` | **The value to use for the Servers plan.** VM count with AKS node-pool VMs already removed, because when both **Servers** and **Containers** plans are enabled those node VMs are billed under Containers — excluding them here prevents double-counting. |
 | `Servers_All` | **Reference only.** Total VM count *including* AKS node-pool VMs. Use this column instead of `Servers` if you do **not** plan to enable the Containers plan, so AKS nodes still get protected (and counted) under Servers. |
 | `Containers` | AKS node count — point-in-time from ARG, replaced by the 30-day average of `kube_node_status_condition` (Ready) when extended collection is enabled |
-| `DCSPM_ServerlessContainers` | **The value to use for the Containers plan's serverless (per-container) meter.** Running **Azure Container Instances (ACI)** containers counted from ARG (only container groups whose power state is `Running`, counting only the containers inside that are themselves `Running`), plus — when extended collection is enabled — the 30-day average, replica-adjusted container count of running **Azure Container Apps (ACA)** |
 | `AppServices` | Sum of workers from `microsoft.web/serverfarms` (Consumption-tier plans are excluded) |
 | `KeyVaults` | Count of Key Vaults |
 | `ARM` | Always `1` per subscription |
@@ -35,6 +34,7 @@ The output CSV contains the following columns:
 | `DCSPM_Storage` | Storage accounts |
 | `DCSPM_Databases` | SQL servers + non-Basic OSS DBs + CosmosDB accounts |
 | `DCSPM_Serverless` | Eligible `microsoft.web/sites` (App + Function apps, all supported kinds) |
+| `DCSPM_ServerlessContainers` | **The value to use for the Containers plan's serverless (per-container) meter.** Running **Azure Container Instances (ACI)** containers counted from ARG (only container groups whose power state is `Running`, counting only the containers inside that are themselves `Running`), plus — when extended collection is enabled — the 30-day average, replica-adjusted container count of running **Azure Container Apps (ACA)** |
 | `API_Requests` | Sum of APIM `Requests` metric across all APIM services (last 30 days) |
 | `CosmosDB_RUs` | Equivalent RU/s — provisioned databases/containers (incl. autoscale avg-hourly-max, multiplied by replica region count) + serverless (Total RU × 0.00003125) |
 | `MalwareScanning_GB` | Storage account blob `Ingress` (last 30 days), summed across accounts in the subscription, in GB |
