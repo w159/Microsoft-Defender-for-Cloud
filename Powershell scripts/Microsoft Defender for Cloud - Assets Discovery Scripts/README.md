@@ -34,7 +34,7 @@ The output CSV contains the following columns:
 | `DCSPM_Storage` | Storage accounts |
 | `DCSPM_Databases` | SQL servers + non-Basic OSS DBs + CosmosDB accounts |
 | `DCSPM_Serverless` | Eligible `microsoft.web/sites` (App + Function apps, all supported kinds) |
-| `DCSPM_ServerlessContainers` | **The value to use for the Containers plan's serverless (per-container) meter.** Running **Azure Container Instances (ACI)** containers counted from ARG (only container groups whose power state is `Running`, counting only the containers inside that are themselves `Running`), plus — when extended collection is enabled — the 30-day average, replica-adjusted container count of running **Azure Container Apps (ACA)** |
+| `DCSPM_ServerlessContainers` | Running **ACI** containers (from ARG) plus, when extended collection is enabled, replica-adjusted running **ACA** containers (see notes) |
 | `API_Requests` | Sum of APIM `Requests` metric across all APIM services (last 30 days) |
 | `CosmosDB_RUs` | Equivalent RU/s — provisioned databases/containers (incl. autoscale avg-hourly-max, multiplied by replica region count) + serverless (Total RU × 0.00003125) |
 | `MalwareScanning_GB` | Storage account blob `Ingress` (last 30 days), summed across accounts in the subscription, in GB |
