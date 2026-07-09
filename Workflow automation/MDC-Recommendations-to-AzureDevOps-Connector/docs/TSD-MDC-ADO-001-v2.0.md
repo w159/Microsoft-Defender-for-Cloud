@@ -35,7 +35,12 @@
 
 This document specifies v2 of the automated connector that creates and lifecycle-manages Azure DevOps (ADO) Work Items from Microsoft Defender for Cloud (MDC) Security Recommendations.
 
-v2 evolves the v1 design by introducing an **Azure Function App** as an enrichment engine sitting behind the Logic App. The Logic App continues to satisfy MDC Workflow Automation's contract (LA is the only supported trigger target), but immediately forwards the recommendation payload to the Function. The Function performs multi-source enrichment — Attack Paths, related recommendations, vulnerability findings, suggested owner, resource criticality, exposure signals — and then composes a **Triage Briefing** that is posted into the ADO Work Item.
+v2 evolves the v1 design by introducing an **Azure Function App** as an enrichment engine sitting
+behind the Logic App. The Logic App continues to satisfy MDC Workflow Automation's contract (LA is
+the only supported trigger target), but immediately forwards the recommendation payload to the
+Function. The Function performs multi-source enrichment — Attack Paths, related recommendations,
+vulnerability findings, suggested owner, resource criticality, exposure signals — and then composes
+a **Triage Briefing** that is posted into the ADO Work Item.
 
 The design intentionally avoids ITSM-grade tooling (e.g., ServiceNow) and instead implements a **"Service Request-alike"** pattern in ADO Boards, now substantially enriched.
 
@@ -74,7 +79,11 @@ All v1 goals, plus:
 1. **No remediation event / no history retention** — when a Security Recommendation transitions to remediated, the assessment record is cleared from MDC. There is no `Healthy` event to subscribe to.
 2. **No back-reference storage** — MDC does not expose a *dedicated* field to persist the ADO Work Item ID against an assessment.
 3. **Consequence** — automatic Work Item closure cannot be implemented. Engineers close manually after verifying remediation. A reconciliation Logic App (scheduled ARG diff) remains parked as a v3 option (see §13).
-4. **v2.1 partial mitigation of #2** — the optional **recommendation assignment write-back** (§4.7) stamps the Work Item id into the assessment's *governance assignment* `owner` field (the only writable back-reference MDC exposes) and flips the recommendation to **Assigned**. This is a one-time write per material change, not bi-directional edit sync (still a non-goal, §2.3), and does **not** enable automatic closure.
+4. **v2.1 partial mitigation of #2** — the optional **recommendation assignment write-back** (§4.7)
+   stamps the Work Item id into the assessment's *governance assignment* `owner` field (the only
+   writable back-reference MDC exposes) and flips the recommendation to **Assigned**. This is a
+   one-time write per material change, not bi-directional edit sync (still a non-goal, §2.3), and
+   does **not** enable automatic closure.
 
 ### 2.5 Prerequisites & Assumptions (v2)
 
@@ -89,7 +98,7 @@ All v1 goals, plus:
 
 ### 3.1 High-Level Architecture
 
-```
+```text
 ┌──────────────────────────┐
 │ Microsoft Defender for   │
 │        Cloud             │
@@ -197,13 +206,20 @@ The Function gathers the following signals per recommendation. All are best-effo
 | 3 | Attack paths the resource participates in | MDC CSPM (DCSPM) | `securityresources` where `type == 'microsoft.security/attackpaths'`, matched to the resource via `properties.targetEntityInternalId` / `entryPointEntityInternalId`. Returns `displayName`, `riskFactors`, MITRE tactics/techniques, `attackPathSteps`, `manualRemediationSteps`. **Verified live 2026-06-23.** |
 | 4 | Vulnerabilities / CVEs (VMs, containers, images) | Defender Vulnerability Mgmt subassessments | `securityresources` type=`microsoft.security/assessments/subassessments` joined to vuln assessment IDs |
 | 5 | Suggested owner | Resource tags → optional Graph lookup | ARG `resources` where `id =~ '<rid>'` → `tags.Owner` or `tags.SecurityContact` |
-| 6 | Resource criticality | Resource tags (primary) + attack-path insights | **No standalone ARG criticality type exists.** Critical-asset classification now lives in Defender XDR / Exposure Management and is surfaced via ARG only as an *insight on attack-path targets* (see #3). Primary source is `tags.Criticality`; enriched opportunistically from attack-path data when present. Abstract behind `IResourceCriticalityProvider`. |
+| 6 | Resource criticality | Resource tags (primary) + attack-path insights | **No standalone ARG criticality type exists.** Primary source is `tags.Criticality`, enriched opportunistically from attack-path target insights (see #3). Abstract behind `IResourceCriticalityProvider`. |
 | 7 | Internet exposure | Attack path metadata | Derived from #3 — `properties.riskFactors` includes `Internet exposure` when applicable. **Verified live 2026-06-23.** |
 | 8 | Resource type, location, subscription, RG | Resource ID parse + ARG `resources` | Direct |
 | 9 | Compliance standards affected | MDC assessment metadata | Already in trigger payload |
 | 10 | Secure Score impact | MDC assessment metadata | Numeric points value from `properties.metadata` (not a Low/Med/High label); already in trigger payload |
 
-**Implementation note:** signals 1, 2, 3, 4, 7, 8 are served by **Azure Resource Graph** (`securityresources` / `resources`) and should be combined into **one or two ARG batches** via the ARG REST `POST /providers/Microsoft.ResourceGraph/resources` endpoint to respect throttling limits. Signal 5 (owner) uses ARG `resources` plus an optional Microsoft Graph lookup. **ARG support verified 2026-06-23** against a live DCSPM-enabled subscription: a `microsoft.security/attackpaths` query returned a complete attack-path object (display name, risk factors, MITRE mapping, steps, remediation). **Exception — signal 6 (criticality):** there is no `microsoft.security/criticalassets` ARG type; criticality is tag-based with best-effort enrichment from attack-path target insights.
+**Implementation note:** signals 1, 2, 3, 4, 7, 8 are served by **Azure Resource Graph**
+(`securityresources` / `resources`) and should be combined into **one or two ARG batches** via the
+ARG REST `POST /providers/Microsoft.ResourceGraph/resources` endpoint to respect throttling limits.
+Signal 5 (owner) uses ARG `resources` plus an optional Microsoft Graph lookup. **ARG support
+verified 2026-06-23** against a live DCSPM-enabled subscription: a `microsoft.security/attackpaths`
+query returned a complete attack-path object (display name, risk factors, MITRE mapping, steps,
+remediation). **Exception — signal 6 (criticality):** there is no `microsoft.security/criticalassets`
+ARG type; criticality is tag-based with best-effort enrichment from attack-path target insights.
 
 ### 4.4 Field Mapping (Enriched MDC → ADO Work Item)
 
@@ -238,7 +254,7 @@ The Function gathers the following signals per recommendation. All are best-effo
 
 ### 4.5 Triage Briefing Template (HTML inserted into `Description`)
 
-```
+```text
 🚨 [HIGH] VM contoso-web-01 — Endpoint protection missing
 
 📌 RESOURCE CONTEXT
@@ -311,11 +327,22 @@ The Logic App is intentionally minimal. All business logic lives in the Function
 
 ### 5.2 `fa-mdc-ado-enricher` — Azure Function App
 
-**Stack:** Python 3.12, Azure Functions v2 programming model, `azure-functions-durable` extension, and `azure-identity` for token acquisition. All enrichment is read through **Azure Resource Graph** via the ARG REST API called with `httpx` — `azure-mgmt-security` is intentionally **not** used because every MDC signal in §4.3 is served by the `securityresources` table, avoiding a redundant management-plane dependency. Owner resolution calls **Microsoft Graph directly over REST** with `httpx` rather than importing the heavyweight `msgraph-sdk`, materially reducing cold-start cost. Azure DevOps is called via REST with `httpx` (Entra token from the Function's Managed Identity — no PAT). Models via `pydantic` v2.
+**Stack:** Python 3.12, Azure Functions v2 programming model, `azure-functions-durable` extension,
+and `azure-identity` for token acquisition. All enrichment is read through **Azure Resource Graph**
+via the ARG REST API called with `httpx` — `azure-mgmt-security` is intentionally **not** used
+because every MDC signal in §4.3 is served by the `securityresources` table, avoiding a redundant
+management-plane dependency. Owner resolution calls **Microsoft Graph directly over REST** with
+`httpx` rather than importing the heavyweight `msgraph-sdk`, materially reducing cold-start cost.
+Azure DevOps is called via REST with `httpx` (Entra token from the Function's Managed Identity — no
+PAT). Models via `pydantic` v2.
 
 **Hosting:** **Flex Consumption** plan. Configure a small number of **always-ready instances** to keep cold starts off the orchestrator/HTTP-start path, with per-instance concurrency for activity fan-out. Flex Consumption also supports VNet integration if private networking to dependencies is later required.
 
-**ADO authentication:** the Function's user-assigned Managed Identity is added as a member of the Azure DevOps organization with scoped Work Item permissions on the target Area Path. The Function acquires an Entra token for the Azure DevOps resource (application ID `499b84ac-1321-427f-aa17-267ca6975798`, scope `/.default`) via `azure-identity` and calls the ADO REST API directly — no PAT, no Key Vault secret.
+**ADO authentication:** the Function's user-assigned Managed Identity is added as a member of the
+Azure DevOps organization with scoped Work Item permissions on the target Area Path. The Function
+acquires an Entra token for the Azure DevOps resource (application ID
+`499b84ac-1321-427f-aa17-267ca6975798`, scope `/.default`) via `azure-identity` and calls the ADO
+REST API directly — no PAT, no Key Vault secret.
 
 #### 5.2.1 Function inventory
 
@@ -486,7 +513,7 @@ MDC refreshes assessments on every scan, so re-fired events are common. Blindly 
 
 ### 10.1 Repository Layout (for VS Code + Copilot Agent development)
 
-```
+```text
 mdc-ado-connector/
 ├── infra/                              # Bicep IaC
 │   ├── main.bicep

@@ -43,7 +43,7 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full design and
 
 ## Repository layout
 
-```
+```text
 infra/                 Bicep IaC (+ compiled main.json ARM template) and the ADO schema script
   main.bicep             resource-group deployment, wires six modules
   main.json              compiled ARM template (powers the "Deploy to Azure" button)
