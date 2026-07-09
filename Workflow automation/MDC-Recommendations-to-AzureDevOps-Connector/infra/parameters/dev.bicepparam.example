@@ -1,0 +1,22 @@
+// Copy to dev.bicepparam and fill in your values before deploying.
+//   cp dev.bicepparam.example dev.bicepparam
+using '../main.bicep'
+
+param env = 'dev'
+param location = 'eastus'
+
+// Optional Key Vault — only needed if you introduce a secret (§6.2). Default off.
+param deployKeyVault = false
+
+// Azure DevOps target the connector writes Work Items to.
+param adoOrgUrl = 'https://dev.azure.com/<your-ado-org>'
+param adoProject = '<your-ado-project>'
+
+// Client (app) id of the Entra app registration used as the Function's Easy Auth audience.
+// Create it first (see docs/DEPLOYMENT.md, "Entra app registration").
+param functionApiClientId = '<app-registration-client-id>'
+
+// MDC write-back (Feature B): set the recommendation Assigned with an ado-wi-<id> back-reference.
+// Requires the managed identity to hold "Security Admin" at subscription scope.
+param mdcWriteBackEnabled = true
+param mdcAssignmentOwnerDomain = 'ado.local'

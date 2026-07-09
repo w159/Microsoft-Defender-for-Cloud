@@ -1,0 +1,15 @@
+[project]
+name = "mdc-ado-enricher"
+version = "0.1.0"
+description = "MDC -> ADO enrichment Azure Function (Durable Functions, Python 3.12)."
+requires-python = ">=3.12"
+dependencies = [
+  "azure-functions",
+  "azure-functions-durable",
+  "azure-identity",
+  "httpx",
+  "tenacity",
+  "pydantic>=2",
+  "jinja2",
+  "azure-monitor-opentelemetry",
+]

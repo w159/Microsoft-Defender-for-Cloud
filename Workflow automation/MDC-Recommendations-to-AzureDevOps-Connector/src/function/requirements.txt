@@ -1,0 +1,8 @@
+azure-functions
+azure-functions-durable
+azure-identity
+httpx
+tenacity
+pydantic>=2
+jinja2
+azure-monitor-opentelemetry

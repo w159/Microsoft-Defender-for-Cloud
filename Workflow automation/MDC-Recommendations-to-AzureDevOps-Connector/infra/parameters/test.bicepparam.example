@@ -1,0 +1,16 @@
+// Copy to test.bicepparam and fill in your values before deploying.
+//   cp test.bicepparam.example test.bicepparam
+using '../main.bicep'
+
+param env = 'test'
+param location = 'eastus'
+param deployKeyVault = false
+
+param adoOrgUrl = 'https://dev.azure.com/<your-ado-org>'
+param adoProject = '<your-ado-project>'
+
+// Create a per-environment Entra app registration for the Function's Easy Auth audience.
+param functionApiClientId = '<app-registration-client-id>'
+
+param mdcWriteBackEnabled = false
+param mdcAssignmentOwnerDomain = 'ado.local'

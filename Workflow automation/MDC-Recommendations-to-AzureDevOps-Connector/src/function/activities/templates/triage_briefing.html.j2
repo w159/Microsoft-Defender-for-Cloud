@@ -1,0 +1,67 @@
+{#
+  §4.5 — Triage Briefing (HTML inserted into the ADO ``Description`` field).
+  Pure presentation: every enrichment section is guarded so partial data renders
+  cleanly (§5.2.3). Values are auto-escaped by the Jinja2 environment.
+-#}
+<div class="mdc-triage-briefing">
+<h1>🚨 [{{ payload.severity|upper }}] {{ payload.resource_name or "resource" }} — {{ payload.display_name or "Security recommendation" }}</h1>
+
+<h2>📌 Resource Context</h2>
+<ul>
+  <li><strong>Type:</strong> {{ payload.resource_type or "(unknown)" }}</li>
+  <li><strong>Subscription:</strong> {{ payload.subscription_id or "(unknown)" }}</li>
+  <li><strong>Resource Group:</strong> {{ payload.resource_group or "(unknown)" }}</li>
+  {% if payload.resource_id %}<li><strong>Resource URI:</strong> <a href="{{ payload.resource_portal_url }}">{{ payload.resource_id }}</a></li>{% endif %}
+  {% if payload.recommendation_url %}<li><strong>Recommendation:</strong> <a href="{{ payload.recommendation_url }}">View in Microsoft Defender for Cloud</a></li>{% endif %}
+  {% if owner and owner.email %}<li><strong>Owner:</strong> {{ owner.email }} ({{ owner.source }})</li>{% endif %}
+  {% if enrichment.criticality %}<li><strong>Criticality:</strong> {{ enrichment.criticality.level }}</li>{% endif %}
+</ul>
+
+{% if enrichment.attack_paths or enrichment.exposure or enrichment.other_recs or enrichment.vulnerabilities %}
+<h2>🎯 Blast Radius</h2>
+<ul>
+  {% if enrichment.attack_paths %}
+  <li>On {{ enrichment.attack_paths.paths|length }} attack path(s):
+    <ul>
+    {% for path in enrichment.attack_paths.paths %}
+      <li>{{ path.display_name or path.id or "(unnamed path)" }}</li>
+    {% endfor %}
+    </ul>
+  </li>
+  {% endif %}
+  {% if enrichment.exposure and enrichment.exposure.internet_facing %}
+  <li>Internet exposed{% if enrichment.exposure.reasoning %} — {{ enrichment.exposure.reasoning }}{% endif %}</li>
+  {% endif %}
+  {% if enrichment.other_recs %}
+  <li>{{ enrichment.other_recs.total }} other open recommendation(s) on this resource
+    ({{ enrichment.other_recs.assigned }} assigned, {{ enrichment.other_recs.unassigned }} unassigned)</li>
+  {% endif %}
+  {% if enrichment.vulnerabilities %}
+  <li>{{ enrichment.vulnerabilities.cve_count }} CVE(s){% if enrichment.vulnerabilities.max_cvss is not none %} (max CVSS {{ enrichment.vulnerabilities.max_cvss }}){% endif %}
+    {% if enrichment.vulnerabilities.top_cves %}
+    <ul>
+    {% for cve in enrichment.vulnerabilities.top_cves %}
+      <li>{{ cve.id or "(unknown CVE)" }}{% if cve.cvss is not none %} — CVSS {{ cve.cvss }}{% endif %}</li>
+    {% endfor %}
+    </ul>
+    {% endif %}
+  </li>
+  {% endif %}
+</ul>
+{% endif %}
+
+{% if payload.metadata and payload.metadata.description %}
+<h2>🛠 Recommendation Detail</h2>
+<p>{{ payload.metadata.description|strip_html }}</p>
+{% endif %}
+
+{% if payload.metadata and payload.metadata.remediation_description %}
+<h2>✅ Remediation Steps</h2>
+<p>{{ payload.metadata.remediation_description|strip_html }}</p>
+{% endif %}
+
+{% if payload.metadata and payload.metadata.compliance_standards %}
+<h2>📊 Compliance</h2>
+<p>{{ payload.metadata.compliance_standards|join(", ") }}</p>
+{% endif %}
+</div>
