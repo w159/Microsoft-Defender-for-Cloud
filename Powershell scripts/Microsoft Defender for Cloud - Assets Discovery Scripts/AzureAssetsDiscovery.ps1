@@ -60,8 +60,10 @@ try {
 # ============================================================================
 try {
     Write-Host "Scanning for subscriptions (this may take a moment)..." -ForegroundColor Yellow
-    $subscriptions = Get-AzSubscription -TenantId $accountInfo.Tenant.Id
-    if (-not $subscriptions) {
+    # Force an array so .Count works even when a single subscription is returned
+    # (a lone object has no .Count, which throws under Set-StrictMode).
+    $subscriptions = @(Get-AzSubscription -TenantId $accountInfo.Tenant.Id)
+    if ($subscriptions.Count -eq 0) {
         throw "No subscriptions found."
     }
     Write-Host "Found $($subscriptions.Count) subscriptions" -ForegroundColor Yellow
